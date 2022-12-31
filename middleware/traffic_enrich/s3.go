@@ -17,10 +17,10 @@ import (
 )
 
 type httpRequest struct {
-	Path    []byte               `json:"path"`
-	Method  []byte               `json:"method"`
+	Path    string               `json:"path"`
+	Method  string               `json:"method"`
 	Headers textproto.MIMEHeader `json:"headers"`
-	Body    []byte               `json:"body"`
+	Body    string               `json:"body"`
 }
 
 type s3Loader struct {
@@ -32,8 +32,8 @@ func newS3Loader() *s3Loader {
 	return loader
 }
 
-func (l *s3Loader) Enqueue(req []byte) {
-	l.RequestsBuffer = append(l.RequestsBuffer, req)
+func (l *s3Loader) Enqueue(payload []byte) {
+	l.RequestsBuffer = append(l.RequestsBuffer, payload)
 	if len(l.RequestsBuffer) >= AppSettings.S3BatchLoadSize {
 		requestsCopied := make([][]byte, len(l.RequestsBuffer))
 		copy(requestsCopied, l.RequestsBuffer)
@@ -58,12 +58,12 @@ func getS3Uploader() *s3manager.Uploader {
 
 func upload(requests [][]byte) {
 	requestStrs := make([]string, 0)
-	for _, item := range requests {
+	for _, payload := range requests {
 		r := httpRequest{
-			Path:    proto.Path(item),
-			Method:  proto.Method(item),
-			Headers: proto.GetHeaders(item),
-			Body:    proto.Body(item),
+			Path:    string(proto.Path(payload)),
+			Method:  string(proto.Method(payload)),
+			Headers: proto.ParseHeaders(payload),
+			Body:    string(proto.Body(payload)),
 		}
 		s, err := json.Marshal(r)
 		if err != nil {
