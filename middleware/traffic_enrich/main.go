@@ -19,6 +19,8 @@ import (
 )
 
 func main() {
+	s3Loader := newS3Loader()
+
 	scanner := bufio.NewScanner(os.Stdin)
 
 	logs.Info("Traffic enrichment starts.")
@@ -28,12 +30,12 @@ func main() {
 		hex.Decode(buf, encoded)
 
 		t := time.Now()
-		process(buf)
+		process(buf, s3Loader)
 		DDClient.Histogram("traffic_replay.latency", float64(time.Since(t))/1e9, []string{"type:total"}, 1)
 	}
 }
 
-func process(buf []byte) {
+func process(buf []byte, s3Loader *s3Loader) {
 	// First byte indicate payload type, possible values:
 	//  1 - Request
 	//  2 - Response
@@ -70,6 +72,9 @@ func process(buf []byte) {
 
 			// Emitting data back
 			os.Stdout.Write(encode(buf))
+
+			// save request to s3
+			s3Loader.Enqueue(buf)
 		}
 	case '2': // Original response
 		DDClient.Incr("traffic_replay.count", []string{"type:original_response"}, 1)
