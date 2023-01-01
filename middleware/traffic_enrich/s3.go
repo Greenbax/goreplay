@@ -17,54 +17,61 @@ import (
 )
 
 type httpRequest struct {
-	Path    string               `json:"path"`
-	Method  string               `json:"method"`
-	Headers textproto.MIMEHeader `json:"headers"`
-	Body    string               `json:"body"`
+	Path        string               `json:"path"`
+	Method      string               `json:"method"`
+	Headers     textproto.MIMEHeader `json:"headers"`
+	Body        string               `json:"body"`
+	RequestTime int64                `json:"request_time"` // nano seconds
 }
 
 type s3Loader struct {
-	RequestsBuffer [][]byte
+	RequestsBuffer []httpRequest
+	AwsSession     *session.Session
 }
 
 func newS3Loader() *s3Loader {
-	loader := &s3Loader{RequestsBuffer: make([][]byte, 0)}
-	return loader
-}
-
-func (l *s3Loader) Enqueue(payload []byte) {
-	l.RequestsBuffer = append(l.RequestsBuffer, payload)
-	if len(l.RequestsBuffer) >= AppSettings.S3BatchLoadSize {
-		requestsCopied := make([][]byte, len(l.RequestsBuffer))
-		copy(requestsCopied, l.RequestsBuffer)
-		l.RequestsBuffer = l.RequestsBuffer[:0] // clear the slice
-		go upload(requestsCopied)
-	}
-}
-
-func getS3Uploader() *s3manager.Uploader {
-	session, err := session.NewSession(&aws.Config{
-		Region:      aws.String(AppSettings.AwsRegion),
-		Credentials: credentials.NewStaticCredentials(AppSettings.AwsAccessKeyId, AppSettings.AwsSecretAccessKey, ""),
+	s, err := session.NewSession(&aws.Config{
+		Region: aws.String(AppSettings.AwsRegion),
+		Credentials: credentials.NewStaticCredentials(
+			AppSettings.AwsAccessKeyId,
+			AppSettings.AwsSecretAccessKey,
+			"",
+		),
 	},
 	)
 	if err != nil {
 		logs.Fatal(err)
 	}
-	uploader := s3manager.NewUploader(session)
+	loader := &s3Loader{RequestsBuffer: make([]httpRequest, 0), AwsSession: s}
+	return loader
+}
+
+func (l *s3Loader) Enqueue(payload []byte, requestTimeNanoseconds int64) {
+	r := httpRequest{
+		Path:        string(proto.Path(payload)),
+		Method:      string(proto.Method(payload)),
+		Headers:     proto.ParseHeaders(payload),
+		Body:        string(proto.Body(payload)),
+		RequestTime: requestTimeNanoseconds,
+	}
+	l.RequestsBuffer = append(l.RequestsBuffer, r)
+	if len(l.RequestsBuffer) >= AppSettings.S3BatchLoadSize {
+		requestsCopied := make([]httpRequest, len(l.RequestsBuffer))
+		copy(requestsCopied, l.RequestsBuffer)
+		l.RequestsBuffer = l.RequestsBuffer[:0] // clear the slice
+		go upload(l.AwsSession, requestsCopied)
+	}
+}
+
+func getS3Uploader(s *session.Session) *s3manager.Uploader {
+	uploader := s3manager.NewUploader(s)
 	return uploader
 
 }
 
-func upload(requests [][]byte) {
+func upload(s *session.Session, requests []httpRequest) {
 	requestStrs := make([]string, 0)
-	for _, payload := range requests {
-		r := httpRequest{
-			Path:    string(proto.Path(payload)),
-			Method:  string(proto.Method(payload)),
-			Headers: proto.ParseHeaders(payload),
-			Body:    string(proto.Body(payload)),
-		}
+	for _, r := range requests {
 		s, err := json.Marshal(r)
 		if err != nil {
 			logs.Error("Fail to marshal request", r)
@@ -76,7 +83,7 @@ func upload(requests [][]byte) {
 	t := time.Now().Format("20060102150405")
 	filename := fmt.Sprintf("%s/requests-%s-%d.txt", AppSettings.S3BucketPrefix, t, rand.Intn(1000))
 
-	uploader := getS3Uploader()
+	uploader := getS3Uploader(s)
 	_, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(AppSettings.S3BucketName),
 		Key:    aws.String(filename),
