@@ -52,10 +52,6 @@ func process(buf []byte, s3Loader *s3Loader) {
 
 	// Header contains space separated values of: request type, request id, and request start time (or round-trip time for responses)
 	meta := bytes.Split(header, []byte(" "))
-	// For each request you should receive 3 payloads (request, response, replayed response) with same request id
-	// reqID := string(meta[1])
-
-	// time.Time.UnixNano()
 	requestTimeNanoseconds, err := strconv.ParseInt(string(meta[2]), 10, 64)
 	if err != nil {
 		logs.Error("Fail to convert", string(meta[2]), "to int64")
