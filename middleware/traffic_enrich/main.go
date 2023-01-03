@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"zip/infra/traffic_enrich/logs"
@@ -19,6 +20,8 @@ import (
 )
 
 func main() {
+	s3Loader := newS3Loader()
+
 	scanner := bufio.NewScanner(os.Stdin)
 
 	logs.Info("Traffic enrichment starts.")
@@ -28,24 +31,33 @@ func main() {
 		hex.Decode(buf, encoded)
 
 		t := time.Now()
-		process(buf)
-		DDClient.Histogram("traffic_replay.latency", float64(time.Since(t))/1e9, []string{"type:total"}, 1)
+		process(buf, s3Loader)
+		DDClient.Histogram(
+			"traffic_replay.latency",
+			float64(time.Since(t))/1e9,
+			[]string{"type:total"},
+			1,
+		)
 	}
 }
 
-func process(buf []byte) {
+func process(buf []byte, s3Loader *s3Loader) {
 	// First byte indicate payload type, possible values:
 	//  1 - Request
 	//  2 - Response
 	//  3 - ReplayedResponse
 	payloadType := buf[0]
 	headerSize := bytes.IndexByte(buf, '\n') + 1
-	// header := buf[:headerSize-1]
+	header := buf[:headerSize-1]
 
 	// Header contains space separated values of: request type, request id, and request start time (or round-trip time for responses)
-	// meta := bytes.Split(header, []byte(" "))
-	// For each request you should receive 3 payloads (request, response, replayed response) with same request id
-	// reqID := string(meta[1])
+	meta := bytes.Split(header, []byte(" "))
+	requestTimeNanoseconds, err := strconv.ParseInt(string(meta[2]), 10, 64)
+	if err != nil {
+		logs.Error("Fail to convert", string(meta[2]), "to int64")
+		return
+	}
+
 	payload := buf[headerSize:]
 
 	logs.Debug("Received payload:", string(buf))
@@ -65,11 +77,18 @@ func process(buf []byte) {
 				logs.Debug("Ignore write traffic")
 				return
 			}
-			newPayload := proto.SetHeader(payload, []byte("Canonical-Resource"), []byte(p.Operation))
+			newPayload := proto.SetHeader(
+				payload,
+				[]byte("Canonical-Resource"),
+				[]byte(p.Operation),
+			)
 			buf = append(buf[:headerSize], newPayload...)
 
 			// Emitting data back
 			os.Stdout.Write(encode(buf))
+
+			// save request to s3
+			s3Loader.Enqueue(payload, requestTimeNanoseconds)
 		}
 	case '2': // Original response
 		DDClient.Incr("traffic_replay.count", []string{"type:original_response"}, 1)
