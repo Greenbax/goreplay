@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"strconv"
 	"time"
@@ -26,6 +27,10 @@ func main() {
 
 	logs.Info("Traffic enrichment starts.")
 	for scanner.Scan() {
+		if rand.Float32() > AppSettings.TrafficSampleRate {
+			return
+		}
+
 		encoded := scanner.Bytes()
 		buf := make([]byte, len(encoded)/2)
 		hex.Decode(buf, encoded)
