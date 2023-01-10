@@ -15,6 +15,7 @@ type Settings struct {
 	S3BucketName       string
 	S3BucketPrefix     string
 	S3BatchLoadSize    int
+	TrafficSampleRate  float32
 }
 
 func lookupEnvOrDefault(key string, defaultValue string) string {
@@ -49,6 +50,13 @@ func newSettings() *Settings {
 		logs.Fatal("Fail to convert", batchLoadSize, "to integer.")
 	}
 	st.S3BatchLoadSize = batchLoadSize
+
+	trafficSampleRateStr := lookupEnvOrDefault("TRAFFIC_SAMPLE_RATE", "1.0")
+	trafficSampleRate, err := strconv.ParseFloat(trafficSampleRateStr, 32)
+	if err != nil {
+		logs.Fatal("Fail to convert", trafficSampleRateStr, "to float32.")
+	}
+	st.TrafficSampleRate = float32(trafficSampleRate)
 
 	return st
 }
