@@ -28,7 +28,7 @@ func main() {
 	logs.Info("Traffic enrichment starts.")
 	for scanner.Scan() {
 		if rand.Float32() > AppSettings.TrafficSampleRate {
-			return
+			continue
 		}
 
 		encoded := scanner.Bytes()
