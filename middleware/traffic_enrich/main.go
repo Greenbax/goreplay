@@ -93,7 +93,7 @@ func process(buf []byte, s3Loader *s3Loader) {
 			os.Stdout.Write(encode(buf))
 
 			// save request to s3
-			s3Loader.Enqueue(payload, requestTimeNanoseconds)
+			s3Loader.Enqueue(newPayload, requestTimeNanoseconds)
 		}
 	case '2': // Original response
 		DDClient.Incr("traffic_replay.count", []string{"type:original_response"}, 1)
