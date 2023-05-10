@@ -442,7 +442,6 @@ func (l *Listener) PcapHandle(ifi pcap.Interface) (handle *pcap.Handle, err erro
 	if snap == 0 {
 		snap = 64<<10 + 200
 	}
-	fmt.Printf("xxx snap length is %v\n", snap)
 
 	err = inactive.SetSnapLen(snap)
 	if err != nil {
@@ -457,8 +456,7 @@ func (l *Listener) PcapHandle(ifi pcap.Interface) (handle *pcap.Handle, err erro
 	if l.config.BufferTimeout == 0 {
 		l.config.BufferTimeout = 2000 * time.Millisecond
 	}
-	// err = inactive.SetTimeout(l.config.BufferTimeout)
-	err = inactive.SetImmediateMode(true)
+	err = inactive.SetTimeout(l.config.BufferTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("handle buffer timeout error: %q, interface: %q", err, ifi.Name)
 	}
@@ -552,7 +550,6 @@ func (l *Listener) readHandle(key string, hndl packetHandle) {
 	for {
 		select {
 		case <-l.quit:
-			fmt.Println("xxx quit.")
 			return
 		case <-timer.C:
 			if h, ok := hndl.handler.(PcapStatProvider); ok {
@@ -563,7 +560,6 @@ func (l *Listener) readHandle(key string, hndl packetHandle) {
 					stats.Add("packets_if_dropped", int64(s.PacketsIfDropped))
 				}
 			}
-			fmt.Println("xxx timer.")
 		default:
 			data, ci, err := hndl.handler.ReadPacketData()
 			if err == nil {
@@ -578,8 +574,6 @@ func (l *Listener) readHandle(key string, hndl packetHandle) {
 					Ci:       &ci,
 				})
 				continue
-			} else {
-				fmt.Printf("xxx err is %v\n", err)
 			}
 			if enext, ok := err.(pcap.NextError); ok && enext == pcap.NextErrorTimeoutExpired {
 				continue

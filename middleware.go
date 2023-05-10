@@ -49,10 +49,8 @@ func NewMiddleware(command string) *Middleware {
 		var err error
 		if err = cmd.Start(); err == nil {
 			err = cmd.Wait()
-			fmt.Println("xxx middleware exits..")
 		}
 		if err != nil {
-			fmt.Printf("xxx middleware exits %v\n", err)
 			if e, ok := err.(*exec.ExitError); ok {
 				status := e.Sys().(syscall.WaitStatus)
 				if status.Signal() == syscall.SIGKILL /*killed or context canceld */ {
@@ -96,14 +94,11 @@ func (m *Middleware) copy(to io.Writer, from PluginReader) {
 		n += hex.Encode(dst[n:], buf)
 		dst[n] = '\n'
 
-		fmt.Println("xxx Send message to middleware.")
 		n, err = to.Write(dst[:n+1])
-		fmt.Println("xxx finish Send message to middleware.")
 		if err == nil {
 			continue
 		}
 		if m.isClosed() {
-			fmt.Println("xxx Failed middleware")
 			return
 		}
 	}
