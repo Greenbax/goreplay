@@ -28,7 +28,6 @@ func main() {
 		scanner.Buffer(buf, 5*1024*1024) // initial 1MB, max 5MB.
 		logs.Info("Traffic enrichment starts.")
 		for scanner.Scan() {
-			logs.Info("processing one record.")
 			if rand.Float32() > AppSettings.TrafficSampleRate {
 				continue
 			}
