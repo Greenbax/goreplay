@@ -22,27 +22,31 @@ import (
 
 func main() {
 	s3Loader := newS3Loader()
+	for {
+		buf := make([]byte, 0, 1024*1024)
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Buffer(buf, 5*1024*1024) // initial 1MB, max 5MB.
+		logs.Info("Traffic enrichment starts.")
+		for scanner.Scan() {
+			logs.Info("processing one record.")
+			if rand.Float32() > AppSettings.TrafficSampleRate {
+				continue
+			}
 
-	scanner := bufio.NewScanner(os.Stdin)
+			encoded := scanner.Bytes()
+			buf := make([]byte, len(encoded)/2)
+			hex.Decode(buf, encoded)
 
-	logs.Info("Traffic enrichment starts.")
-	for scanner.Scan() {
-		if rand.Float32() > AppSettings.TrafficSampleRate {
-			continue
+			t := time.Now()
+			process(buf, s3Loader)
+			DDClient.Histogram(
+				"traffic_replay.latency",
+				float64(time.Since(t))/1e9,
+				[]string{"type:total"},
+				1,
+			)
 		}
-
-		encoded := scanner.Bytes()
-		buf := make([]byte, len(encoded)/2)
-		hex.Decode(buf, encoded)
-
-		t := time.Now()
-		process(buf, s3Loader)
-		DDClient.Histogram(
-			"traffic_replay.latency",
-			float64(time.Since(t))/1e9,
-			[]string{"type:total"},
-			1,
-		)
+		logs.Error("Traffic enrichment stops. Something must be wrong: ", scanner.Err())
 	}
 }
 
