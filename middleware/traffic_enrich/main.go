@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
 	"strconv"
 	"time"
@@ -28,10 +27,6 @@ func main() {
 		scanner.Buffer(buf, 5*1024*1024) // initial 1MB, max 5MB.
 		logs.Info("Traffic enrichment starts.")
 		for scanner.Scan() {
-			if rand.Float32() > AppSettings.TrafficSampleRate {
-				continue
-			}
-
 			encoded := scanner.Bytes()
 			buf := make([]byte, len(encoded)/2)
 			hex.Decode(buf, encoded)
@@ -83,6 +78,10 @@ func process(buf []byte, s3Loader *s3Loader) {
 			}
 			if !p.IsQuery {
 				logs.Debug("Ignore write traffic")
+				return
+			}
+			if !rateLimitAllowed(p.Operation, AppSettings.RequestHourlyRateLimit) {
+				logs.Debug("Drop request", p.Operation, "as it reach the limit.")
 				return
 			}
 			newPayload := proto.SetHeader(
