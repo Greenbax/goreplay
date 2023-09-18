@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
 	"strconv"
 	"time"
@@ -28,10 +27,6 @@ func main() {
 		scanner.Buffer(buf, 5*1024*1024) // initial 1MB, max 5MB.
 		logs.Info("Traffic enrichment starts.")
 		for scanner.Scan() {
-			if rand.Float32() > AppSettings.TrafficSampleRate {
-				continue
-			}
-
 			encoded := scanner.Bytes()
 			buf := make([]byte, len(encoded)/2)
 			hex.Decode(buf, encoded)
@@ -72,7 +67,6 @@ func process(buf []byte, s3Loader *s3Loader) {
 	DDClient.Incr("traffic_replay.count", []string{"type:total"}, 1)
 	switch payloadType {
 	case '1': // Request
-		DDClient.Incr("traffic_replay.count", []string{"type:request"}, 1)
 		url := proto.Path(payload)
 		logs.Debug(string(url))
 		if bytes.Equal(url, []byte("/graphql")) {
@@ -83,6 +77,10 @@ func process(buf []byte, s3Loader *s3Loader) {
 			}
 			if !p.IsQuery {
 				logs.Debug("Ignore write traffic")
+				return
+			}
+			if !rateLimitAllowed(p.Operation, AppSettings.RequestHourlyRateLimit) {
+				logs.Debug("Drop request", p.Operation, "as it reach the limit", AppSettings.RequestHourlyRateLimit)
 				return
 			}
 			newPayload := proto.SetHeader(
@@ -97,6 +95,8 @@ func process(buf []byte, s3Loader *s3Loader) {
 
 			// save request to s3
 			s3Loader.Enqueue(newPayload, requestTimeNanoseconds)
+
+			DDClient.Incr("traffic_replay.count", []string{"type:request"}, 1)
 		}
 	case '2': // Original response
 		DDClient.Incr("traffic_replay.count", []string{"type:original_response"}, 1)

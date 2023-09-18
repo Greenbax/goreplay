@@ -9,13 +9,13 @@ import (
 
 // Settings are a set of configurations loaded from environment variables.
 type Settings struct {
-	AwsRegion          string
-	AwsAccessKeyId     string
-	AwsSecretAccessKey string
-	S3BucketName       string
-	S3BucketPrefix     string
-	S3BatchLoadSize    int
-	TrafficSampleRate  float32
+	AwsRegion              string
+	AwsAccessKeyId         string
+	AwsSecretAccessKey     string
+	S3BucketName           string
+	S3BucketPrefix         string
+	S3BatchLoadSize        int
+	RequestHourlyRateLimit int
 }
 
 func lookupEnvOrDefault(key string, defaultValue string) string {
@@ -51,12 +51,12 @@ func newSettings() *Settings {
 	}
 	st.S3BatchLoadSize = batchLoadSize
 
-	trafficSampleRateStr := lookupEnvOrDefault("TRAFFIC_SAMPLE_RATE", "1.0")
-	trafficSampleRate, err := strconv.ParseFloat(trafficSampleRateStr, 32)
+	requestHourlyRateLimitStr := lookupEnvOrDefault("REQUEST_HOURLY_RATE_LIMIT", "100")
+	requestHourlyRateLimit, err := strconv.Atoi(requestHourlyRateLimitStr)
 	if err != nil {
-		logs.Fatal("Fail to convert", trafficSampleRateStr, "to float32.")
+		logs.Fatal("Fail to convert", requestHourlyRateLimitStr, "to integer.")
 	}
-	st.TrafficSampleRate = float32(trafficSampleRate)
+	st.RequestHourlyRateLimit = requestHourlyRateLimit
 
 	return st
 }
