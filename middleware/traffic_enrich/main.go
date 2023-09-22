@@ -24,7 +24,7 @@ func main() {
 	for {
 		buf := make([]byte, 0, 1024*1024)
 		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Buffer(buf, 5*1024*1024) // initial 1MB, max 5MB.
+		scanner.Buffer(buf, 60*1024*1024) // initial 1MB, max 60MB.
 		logs.Info("Traffic enrichment starts.")
 		for scanner.Scan() {
 			encoded := scanner.Bytes()
@@ -53,8 +53,18 @@ func process(buf []byte, s3Loader *s3Loader) {
 	headerSize := bytes.IndexByte(buf, '\n') + 1
 	header := buf[:headerSize-1]
 
-	// Header contains space separated values of: request type, request id, and request start time (or round-trip time for responses)
+	// Header contains four values separated by space:
+	// 1. request type
+	// 2. request id
+	// 3. request start time (or round-trip time for responses)
+	// 4. duration in nano seconds
+	// see https://github.com/dingxiong/goreplay/blob/d440b3dc8f2800b8147cd968f68aa10ec8b72e3b/input_raw.go#L101
 	meta := bytes.Split(header, []byte(" "))
+	if len(meta) != 4 {
+		logs.Error("Bad header", meta)
+		return
+	}
+
 	requestTimeNanoseconds, err := strconv.ParseInt(string(meta[2]), 10, 64)
 	if err != nil {
 		logs.Error("Fail to convert", string(meta[2]), "to int64")
