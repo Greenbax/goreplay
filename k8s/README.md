@@ -6,7 +6,7 @@ After following steps below, you will be able to capture traffic inside k8s like
 gor --input-raw k8s://namespace/deployment/app:80 --output-http http://replay.com
 ```
 
-GoReplay will running as a daemonset (e.g. on each phisical k8s node. 
+GoReplay will running as a daemonset (e.g. on each phisical k8s node.
 It will also require giving required permission to have read access to K8s APIs, so it can dynamically filter traffic for a specific pods.
 
 Supported format for filtering required pods:
@@ -25,7 +25,7 @@ k8s://[namespace/]fieldSelector/[selector] - k8s://default/fieldSelector/metadat
 
 ## 2. Create the Kubernetes service account in the namespace:
 
-`kubectl create serviceaccount goreplay --namespace goreplay`
+`kubectl -n goreplay -f serviceaccount.yaml apply`
 
 ## 3. Create Cluster Role which gives read-only access to the pods:
 `kubectl -n goreplay -f clusterrole.yaml apply`
@@ -69,7 +69,7 @@ roleRef:
 
 `kubectl -n goreplay -f goreplay.yaml apply`
 
-In arguments, specify which service you want to capture. 
+In arguments, specify which service you want to capture.
 Following format supported:
 
 
@@ -117,7 +117,7 @@ spec:
         image: nginx
         ports:
         - containerPort: 80
-   
+
 ---
 apiVersion: v1
 kind: Service
@@ -141,4 +141,3 @@ Find url for your service using `kubectl get svc` or `minikube service --url ngn
 
 Get GoReplay logs, and check if it capture traffic of your service.
 `kubectl logs -n goreplay -l name=goreplay-daemon --all-containers`
-

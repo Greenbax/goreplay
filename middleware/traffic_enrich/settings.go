@@ -10,8 +10,6 @@ import (
 // Settings are a set of configurations loaded from environment variables.
 type Settings struct {
 	AwsRegion              string
-	AwsAccessKeyId         string
-	AwsSecretAccessKey     string
 	S3BucketName           string
 	S3BucketPrefix         string
 	S3BatchLoadSize        int
@@ -38,8 +36,6 @@ func newSettings() *Settings {
 	st := &Settings{}
 
 	st.AwsRegion = lookupEnvOrDefault("AWS_REGION", "us-east-2")
-	st.AwsAccessKeyId = lookupEnvOrExit("TRAFFIC_REPLAY_AWS_ACCESS_KEY_ID")
-	st.AwsSecretAccessKey = lookupEnvOrExit("TRAFFIC_REPLAY_AWS_SECRET_ACCESS_KEY")
 
 	st.S3BucketName = lookupEnvOrDefault("TRAFFIC_REPLAY_BUCKET_NAME", "zip-traffic-replay")
 	st.S3BucketPrefix = lookupEnvOrDefault("TRAFFIC_REPLAY_BUCKET_PREFIX", "test")
