@@ -25,7 +25,7 @@ k8s://[namespace/]fieldSelector/[selector] - k8s://default/fieldSelector/metadat
 
 ## 2. Create the Kubernetes service account in the namespace:
 
-`kubectl -n goreplay -f serviceaccount.yaml apply`
+`kubectl create serviceaccount goreplay --namespace goreplay`
 
 ## 3. Create Cluster Role which gives read-only access to the pods:
 `kubectl -n goreplay -f clusterrole.yaml apply`
