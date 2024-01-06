@@ -10,7 +10,6 @@ import (
 	"zip/infra/traffic_enrich/logs"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/buger/goreplay/proto"
@@ -32,16 +31,12 @@ type s3Loader struct {
 func newS3Loader() *s3Loader {
 	s, err := session.NewSession(&aws.Config{
 		Region: aws.String(AppSettings.AwsRegion),
-		Credentials: credentials.NewStaticCredentials(
-			AppSettings.AwsAccessKeyId,
-			AppSettings.AwsSecretAccessKey,
-			"",
-		),
 	},
 	)
 	if err != nil {
 		logs.Fatal(err)
 	}
+
 	loader := &s3Loader{RequestsBuffer: make([]httpRequest, 0), AwsSession: s}
 	return loader
 }
